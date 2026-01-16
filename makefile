@@ -1,7 +1,7 @@
 py=.venv/bin/python
 pip=.venv/bin/pip
 user=guenthner
-program-name=placeholder
+program-name=simple-oop
 
 install_dependencies:
 	$(pip) install build hatchling twine

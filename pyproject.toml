@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "placeholder"
+name = "simple-oop"
 version = "2025.10.21" # version
 authors = [
     { name = "Guenthner", email = "guenthner.jonathan@gmail.com" },
@@ -20,4 +20,4 @@ dependencies = []
 keywords = []
 
 [project.scripts]
-placeholder = "placeholder:command_entry_point"
+placeholder = "simple_oop:command_entry_point"
