@@ -17,6 +17,8 @@ from .version import program_version
 
 colorama.init(autoreset=True)
 
+from .code_gen import TemplateEnvironment  # I put this here to stop it from being moved (professional, I know)
+
 PROGRAM_NAME = "simple-oop"
 
 log = logging.getLogger(PROGRAM_NAME)
@@ -66,16 +68,16 @@ class Generate(Mode):
         parser = super().create_parser(obj)
         parser.add_argument("-w", "--working-directory", type=Path, default=Path(os.getcwd()))
         parser.add_argument("--dump-tree", type=str, default=None)
+        parser.add_argument("config", type=Path)
         return parser
 
     @classmethod
     def call(cls, args: argparse.Namespace) -> None:
         os.chdir(args.working_directory.resolve())
 
-        config_file = Path("simple-oop/config.json")
-        assert config_file.exists(), f"File {config_file} does not exist at {os.getcwd()}"
+        assert args.config.exists(), f"File {args.config} does not exist at {os.getcwd()}"
         try:
-            c = Config.model_validate_json(config_file.read_text())
+            c = Config.model_validate_json(args.config.read_text())
         except ValidationError as e:
             print(e)
             return
@@ -104,10 +106,10 @@ class Generate(Mode):
             for r in roots:
                 r.print_tree(args.dump_tree)
 
-        # gen = CodeGen(ctx)
-        #
-        # for template in c.templates:
-        #     gen.generate(template)
+        gen = TemplateEnvironment(ctx)
+
+        for template in c.templates:
+            gen.generate(template)
 
 
 def main():

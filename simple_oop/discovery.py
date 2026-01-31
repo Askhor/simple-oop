@@ -49,7 +49,9 @@ def discover_file(ctx: NodeContext, path: Path):
     for m in ctx.config.regex.finditer(string):
         try:
             parse_match(ctx, path, m)
-        except ValueError:
+        except ValueError as e:
+            if str(e) != "":
+                raise e
             ctx.errors += 1
 
 

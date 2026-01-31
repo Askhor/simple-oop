@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "simple-oop"
-version = "2025.10.21" # version
+version = "2026.2.6" # version
 authors = [
     { name = "Guenthner", email = "guenthner.jonathan@gmail.com" },
 ]
@@ -20,4 +20,4 @@ dependencies = ["pydantic", "jinja2", "colorama"]
 keywords = []
 
 [project.scripts]
-placeholder = "simple_oop:command_entry_point"
+simple-oop = "simple_oop:command_entry_point"

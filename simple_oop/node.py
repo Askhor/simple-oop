@@ -1,7 +1,8 @@
 import logging
+import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Iterable
 
 from colorama import Fore
 
@@ -18,7 +19,7 @@ class Node:
         self.file: Optional[Path] = None
         self.declaration: Optional[str] = None
 
-        self.variables: dict[str, Any] = {k: None for k in ctx.config.variables}
+        self.variables: dict[str, Any] = {name: _type.default() for name, _type in ctx.config.variables.items()}
         self.variables["name"] = name
 
         self.references: dict[str, list['Node']] = defaultdict(list)
@@ -54,7 +55,7 @@ class Node:
         for name, _type in self.ctx.config.variables.items():
             if _type in skip_types: continue
             value = self.variables[name]
-            print(f"{name}: {_type.format(value)}", end=" ")
+            print(_type.format(name, value), end="")
 
         print()
 
@@ -69,6 +70,38 @@ class Node:
 
     def __str__(self) -> str:
         return self.variables["name"]
+
+    def __getitem__(self, item: str):
+        try:
+            return getattr(self, item)
+        except AttributeError:
+            pass
+
+        invert: bool = False
+
+        if item.startswith("not"):
+            invert = True
+            item = item.removeprefix("not").lstrip()
+
+        if item not in self.ctx.config.variables:
+            log.error(
+                f"Variable {item} used in a template declaration or "
+                f"template and was not declared in \"variables\"")
+            sys.exit(1)
+
+        value = self.variables[item]
+        if invert:
+            return not value
+        else:
+            return value
+
+    def children(self, variable: str, indirect: bool = False) -> Iterable['Node']:
+        if indirect:
+            yield self
+            for child in self.references[variable]:
+                yield from child.children(variable, indirect=indirect)
+        else:
+            yield from self.references[variable]
 
 
 class NodeContext:

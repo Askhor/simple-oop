@@ -3,7 +3,7 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 from colorama import Fore
 from pydantic import BaseModel, ConfigDict, BeforeValidator, AfterValidator
@@ -42,6 +42,13 @@ class VariableType(Enum):
     BOOL = "bool"
     NODE = "node"
 
+    def default(self) -> Any:
+        match self:
+            case self.BOOL:
+                return False
+            case _:
+                return None
+
     def color(self) -> str:
         match self:
             case self.STRING:
@@ -51,14 +58,24 @@ class VariableType(Enum):
             case self.NODE:
                 return Fore.GREEN
 
-    def format(self, value: Any) -> str:
+    def format(self, name: str, value: Any) -> str:
         match self:
             case self.STRING:
-                return self.color() + f"{value:>20}" + Fore.RESET
+                return f"{self.color()}{value}{Fore.RESET} ({name}) "
             case self.BOOL:
-                return self.color() + f"{str(value):>5}" + Fore.RESET
+                assert isinstance(value, bool), f"Value {value} is not a bool for field {name}"
+                if value:
+                    return f"{self.color()}{name}{Fore.RESET} "
+                else:
+                    return ""
             case self.NODE:
-                return self.color() + f"{str(value):>20}" + Fore.RESET
+                return f"{self.color()}{name}->{str(value)}{Fore.RESET}"
+
+
+class TemplateConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    foreach: Optional[list[str]] = None
 
 
 class Config(BaseModel):
@@ -69,4 +86,4 @@ class Config(BaseModel):
     input_directories: list[DIRECTORY_EXISTS]
     output_directory: DIRECTORY_EXISTS
     template_directory: DIRECTORY_EXISTS
-    # templates: list[str]
+    templates: list[TemplateConfig]
