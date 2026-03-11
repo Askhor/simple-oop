@@ -4,7 +4,12 @@ user=guenthner
 program-name=simple-oop
 
 install_dependencies:
-	$(pip) install build hatchling twine
+	python3 -m venv .venv
+	$(py) -m pip install --upgrade pip
+	$(pip) install build hatchling twine colorama pytest hypothesis mydefaults mypy types-colorama
+
+test:
+	$(py) -m pytest $(args)
 
 set_user:
 	cp ~/.pypirc_$(user) ~/.pypirc
@@ -26,4 +31,4 @@ upload: set_user build
 reload: upload
 	pipx upgrade $(program-name)
 	pipx upgrade $(program-name)
-	$(program-name) --version . .
+	$(program-name) --version
