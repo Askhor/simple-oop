@@ -38,8 +38,8 @@ def parse_match(ctx: NodeContext, file: Path, m) -> None:
 
 
 def discover_file(ctx: NodeContext, path: Path):
-    if not ctx.config.file_regex.fullmatch(path.name):
-        return
+    """Calls parse_match on every match of the regex specified in the config"""
+
     try:
         string = path.read_text("utf-8")
     except UnicodeDecodeError:
@@ -56,8 +56,6 @@ def discover_file(ctx: NodeContext, path: Path):
 
 
 def discover(ctx: NodeContext, path: Path):
-    if path.is_file():
-        discover_file(ctx, path)
-    else:
-        for file in path.iterdir():
-            discover(ctx, file)
+    for file in path.glob(ctx.config.file_glob):
+        if file.is_dir(): continue
+        discover_file(ctx, file)

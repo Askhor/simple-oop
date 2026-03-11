@@ -40,7 +40,7 @@ class TemplateEnvironment:
             return
         out = self.ctx.config.output_directory
 
-        if template.config.foreach is None:
+        if template_config.foreach is None:
             template.render(out / template_config.name, {
                 "nodes": self.ctx.nodes.values()
             })
@@ -61,7 +61,7 @@ class Template:
         self.jinja_template: Any
 
         try:
-            self.jinja_template = self.env.env.get_template(config.name)
+            self.jinja_template = self.env.env.get_template(str(config.file))
         except TemplateNotFound as e:
             self.jinja_template = None
             raise e
@@ -73,9 +73,6 @@ class Template:
         file.write_text(self.env.generated_file_marker + self.jinja_template.render(**variables))
         log.info(f"Generated {file.name}")
 
-    def node_matches(self, node: Node):
+    def node_matches(self, node: Node) -> bool:
         assert self.config.foreach is not None
-        for r in self.config.foreach:
-            if not node[r]:
-                return False
-        return True
+        return bool(node[self.config.foreach])

@@ -1,13 +1,13 @@
-import argparse
+# PYTHON_ARGCOMPLETE_OK
+
 import logging
 import os
-from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Union
 
+import argcomplete
 import colorama
-from colorama import Fore
+import mydefaults
 from pydantic import ValidationError
 
 from .config import Config, VariableType
@@ -17,18 +17,12 @@ from .version import program_version
 
 colorama.init(autoreset=True)
 
-from .code_gen import TemplateEnvironment  # I put this here to stop it from being moved (professional, I know)
+from .code_gen import TemplateEnvironment  # I put this comment here to stop the line from being moved (professional, I know)
 
 PROGRAM_NAME = "simple-oop"
 
-log = logging.getLogger(PROGRAM_NAME)
-console = logging.StreamHandler()
-log.addHandler(console)
-log.setLevel(logging.DEBUG)
-console.setFormatter(
-    logging.Formatter(
-        f"{{asctime}} [{Fore.YELLOW}{{levelname:>5}}{Fore.RESET}] {Fore.BLUE}{{name}}{Fore.RESET}: {{message}}",
-        style="{", datefmt="W%W %a %I:%M"))
+mydefaults.create_logger(__package__)
+log = logging.getLogger(__package__)
 
 colorama.init(autoreset=True)
 
@@ -40,93 +34,66 @@ def command_entry_point():
         log.warning("Program was interrupted by user")
 
 
-class Mode(ABC):
-    modes: list[type['Mode']] = []
-    name: Union[None, str] = None
-    description: Union[None, str] = None
+@mydefaults.sub_command
+def generate(parser: ArgumentParser):
+    """TODO: add description"""
 
-    @classmethod
-    @abstractmethod
-    def create_parser(cls, obj) -> ArgumentParser:
-        parser = obj.add_parser(cls.name, description=cls.description, help=cls.description)
-        parser.set_defaults(mode=cls)
-        return parser
+    parser.add_argument("-w", "--working-directory", type=Path, default=Path(os.getcwd()))
+    parser.add_argument("--dump-tree", type=str, default=None)
+    parser.add_argument("config", type=Path)
 
-    @classmethod
-    @abstractmethod
-    def call(cls, args):
-        pass
+    args = yield
 
+    os.chdir(args.working_directory.resolve())
 
-@Mode.modes.append
-class Generate(Mode):
-    name = "generate"
-    description = "TODO"  # TODO
+    assert args.config.exists(), f"File {args.config} does not exist at {os.getcwd()}"
+    try:
+        c = Config.model_validate_json(args.config.read_text())
+    except ValidationError as e:
+        print(e)
+        return
 
-    @classmethod
-    def create_parser(cls, obj) -> ArgumentParser:
-        parser = super().create_parser(obj)
-        parser.add_argument("-w", "--working-directory", type=Path, default=Path(os.getcwd()))
-        parser.add_argument("--dump-tree", type=str, default=None)
-        parser.add_argument("config", type=Path)
-        return parser
+    if args.verbose:
+        log.debug("Using following config:")
+        print(c.model_dump_json(indent=4))
 
-    @classmethod
-    def call(cls, args: argparse.Namespace) -> None:
-        os.chdir(args.working_directory.resolve())
+    ctx = NodeContext(c)
 
-        assert args.config.exists(), f"File {args.config} does not exist at {os.getcwd()}"
-        try:
-            c = Config.model_validate_json(args.config.read_text())
-        except ValidationError as e:
-            print(e)
-            return
+    discover(ctx, c.input_directories[0])
 
-        if args.verbose:
-            log.debug("Using following config:")
-            print(c.model_dump_json(indent=4))
+    if ctx.errors > 0:
+        log.error(f"Discovery failed with {ctx.errors} error(s)")
+        return
 
-        ctx = NodeContext(c)
+    if args.verbose:
+        log.debug("Found the following type structure:")
+        ctx.print_types()
 
-        discover(ctx, c.input_directories[0])
+    if args.dump_tree is not None:
+        assert args.dump_tree in c.variables
+        assert c.variables[args.dump_tree] == VariableType.NODE
 
-        if ctx.errors > 0:
-            log.error(f"Discovery failed with {ctx.errors} error(s)")
-            return
+        roots = [n for n in ctx.nodes.values() if n.variables[args.dump_tree] is None]
+        for r in roots:
+            r.print_tree(args.dump_tree)
 
-        if args.verbose:
-            log.debug("Found the following type structure:")
-            ctx.print_types()
+    gen = TemplateEnvironment(ctx)
 
-        if args.dump_tree is not None:
-            assert args.dump_tree in c.variables
-            assert c.variables[args.dump_tree] == VariableType.NODE
-
-            roots = [n for n in ctx.nodes.values() if n.variables[args.dump_tree] is None]
-            for r in roots:
-                r.print_tree(args.dump_tree)
-
-        gen = TemplateEnvironment(ctx)
-
-        for template in c.templates:
-            gen.generate(template)
+    for template in c.iter_templates():
+        gen.generate(template)
 
 
-def main():
-    parser = ArgumentParser(prog=PROGRAM_NAME,
-                            description="Placeholder description",
-                            allow_abbrev=True, add_help=True, exit_on_error=True)
+@mydefaults.command(version="2026.3.4")
+def main(parser: ArgumentParser):
+    """TODO: add description"""
 
-    parser.add_argument('-v', '--verbose', action='store_true', help="Show more output")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {program_version}")
-
-    subparsers = parser.add_subparsers(title="Modes", description="Possible modes of operation", required=True)
-    for mode in Mode.modes:
-        mode.create_parser(subparsers)
+    mydefaults.add_sub_commands(
+        parser.add_subparsers(title="Modes", description="Possible modes of operation", required=True))
+    argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 
     log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
     log.debug("Starting program...")
 
-    args.mode.call(args)
+    mydefaults.run_sub_command(args)
